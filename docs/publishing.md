@@ -4,6 +4,20 @@ PomodoroCube is a static site, so any free static host works. GitHub Pages is th
 default because the repository and the hosting live in the same place, and both
 are free for public and private repos.
 
+## The fast path — one command
+
+```bash
+node tools/publish.mjs <your-github-username>        # add --gh to create the repo via the GitHub CLI
+node tools/publish.mjs <your-github-username> --dry-run   # see what it would do
+```
+
+The script rewrites every `YOUR-USERNAME` placeholder to your account, makes sure
+this folder is a git repository on `main`, sets `origin`, creates the repository
+(with `--gh`, when the [GitHub CLI](https://cli.github.com) is installed) and
+pushes `main` plus tags. It uses only the Node standard library and your existing
+git credentials — nothing is uploaded anywhere except your own repository.
+Afterwards, enable Pages as described below.
+
 ## GitHub Pages (included workflow)
 
 The repo ships with `.github/workflows/pages.yml`, which runs the static checks,

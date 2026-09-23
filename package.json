@@ -16,6 +16,7 @@
   },
   "scripts": {
     "start": "node tools/serve.mjs",
+    "publish": "node tools/publish.mjs",
     "check": "node --check src/app.js && node --check sw.js && node tools/check.mjs",
     "test:static": "node tools/check.mjs"
   },
