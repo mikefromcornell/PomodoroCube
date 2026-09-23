@@ -159,7 +159,7 @@ PomodoroCube/
 │   └── styles.css           # design tokens, cube, light/dark themes
 ├── assets/                  # SVG + PNG icons, favicon
 ├── tests/accuracy.test.js   # built-in test suite  (?test=1)
-├── tools/                   # serve.mjs, check.mjs (both dependency-free)
+├── tools/                   # serve.mjs, check.mjs, publish.mjs — all dependency-free
 ├── manifest.webmanifest     # PWA install metadata
 ├── sw.js                    # offline service worker
 └── docs/                    # accuracy, reminders, publishing, architecture

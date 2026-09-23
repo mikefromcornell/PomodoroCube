@@ -35,8 +35,9 @@ First public release.
 * Progressive Web App: manifest, maskable icons, offline service worker.
 * Built-in accuracy test suite (`?test=1`) — alert punctuality, frozen-page
   behaviour, pause/resume and SET-flow checks with a visible report.
-* Zero-dependency tooling: `tools/serve.mjs` (static server) and
-  `tools/check.mjs` (consistency checks), both runnable with plain Node.
+* Zero-dependency tooling: `tools/serve.mjs` (static server), `tools/check.mjs`
+  (consistency checks) and `tools/publish.mjs` (one-command GitHub Pages
+  publisher), all runnable with plain Node.
 * GitHub Actions workflows for free GitHub Pages deployment and static checks.
 * Light and dark themes, responsive layout, reduced-motion support.
 
