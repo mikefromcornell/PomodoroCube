@@ -1,0 +1,27 @@
+{
+  "name": "pomodorocube",
+  "version": "1.0.0",
+  "description": "A free, dependency-free virtual pomodoro cube timer: accurate countdown, reminder alerts at 50/75/90 %, spoken time remaining, adjustable preset (30 minutes default).",
+  "keywords": ["pomodoro", "timer", "cube", "focus", "productivity", "pwa", "vanilla-js", "github-pages"],
+  "license": "MIT",
+  "private": false,
+  "type": "module",
+  "homepage": "https://mikefromcornell.github.io/PomodoroCube/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mikefromcornell/PomodoroCube.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mikefromcornell/PomodoroCube/issues"
+  },
+  "scripts": {
+    "start": "node tools/serve.mjs",
+    "check": "node --check src/app.js && node --check sw.js && node tools/check.mjs",
+    "test:static": "node tools/check.mjs"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18"
+  }
+}

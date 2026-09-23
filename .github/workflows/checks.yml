@@ -1,0 +1,23 @@
+name: Checks
+
+# Dependency-free static checks: syntax, referenced files exist, alert thresholds
+# are still wired, and versions agree. Runs on every push and pull request.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node --check src/app.js
+      - run: node --check sw.js
+      - run: node --check tests/accuracy.test.js
+      - run: node tools/check.mjs

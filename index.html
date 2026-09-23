@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>PomodoroCube — a virtual pomodoro cube timer</title>
+<meta name="description" content="A free, offline-friendly virtual pomodoro cube timer: 7-segment countdown with a 60-tick progress ring, reminder alerts at 50%, 75% and 90%, spoken time-remaining announcements, and an adjustable preset (30 minutes by default)." />
+<meta name="theme-color" content="#ff8a1f" />
+<meta name="color-scheme" content="light dark" />
+<meta property="og:title" content="PomodoroCube — a virtual pomodoro cube timer" />
+<meta property="og:description" content="7-segment countdown, 60-tick progress ring, alerts at 50 / 75 / 90 %, spoken time remaining. Set your own preset — 30 minutes by default." />
+<meta property="og:type" content="website" />
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="assets/icon-192.png" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="stylesheet" href="src/styles.css" />
+</head>
+<body>
+<div class="wrap">
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-badge" viewBox="0 0 48 48" aria-hidden="true">
+        <rect x="6" y="6" width="36" height="36" rx="10" fill="#ff8a1f"/>
+        <rect x="11" y="11" width="26" height="26" rx="7" fill="#17110c"/>
+        <circle cx="24" cy="24" r="8.5" fill="none" stroke="#ff8a1f" stroke-width="2.4" stroke-dasharray="40 13.4" stroke-linecap="round"/>
+        <text x="24" y="27.6" font-family="ui-monospace,Menlo,monospace" font-size="9" font-weight="700" fill="#fff8ec" text-anchor="middle">30</text>
+      </svg>
+      <div>
+        <h1>PomodoroCube</h1>
+        <p>A virtual cube timer — accurate countdown, 50/75/90 % reminders, spoken time remaining.</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button class="btn btn-ghost btn-sm" id="notifyToggle" aria-pressed="false" title="Desktop notifications">🔔 Notify</button>
+      <button class="btn btn-ghost btn-sm" id="themeBtn" title="Toggle light / dark">☾ Dark</button>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <!-- ======================= the cube ======================= -->
+    <main class="card stage">
+      <div class="scene">
+        <div class="cube-wrap">
+          <div class="cube" id="cube" role="button" tabindex="0" aria-label="Start or pause the timer">
+            <!-- top face -->
+            <div class="face face--top">
+              <div class="print-top">
+                <span class="num" id="topNum">30</span>
+                <span class="unit">MIN</span>
+              </div>
+            </div>
+            <!-- right face -->
+            <div class="face face--right">
+              <div class="print-side">
+                <span class="brandline">CUBE</span>
+                <span class="phaseline" id="sidePhase">FOCUS</span>
+              </div>
+            </div>
+            <!-- front face with the display -->
+            <div class="face face--front">
+              <div class="screen" id="screen">
+                <svg viewBox="-100 -100 200 200" aria-hidden="true">
+                  <circle class="ring-bg" r="61.5"/>
+                  <circle id="arc" class="arc" r="61.5" pathLength="100"
+                          stroke-dasharray="100 100" stroke-dashoffset="0" transform="rotate(-90)"/>
+                  <g id="tickGroup"></g>
+                  <g id="digits" class="digits" transform="scale(1.0) translate(-50.75 -22)">
+                    <g id="digitsMin"></g>
+                    <g id="colon"></g>
+                    <g id="digitsSec"></g>
+                  </g>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div class="cube-shadow"></div>
+        </div>
+      </div>
+
+      <div class="statusbar">
+        <div class="status-left">
+          <span class="phase-chip" id="phaseChip" data-phase="focus">Focus</span>
+          <span class="status-num" id="remainingText">30:00 ready</span>
+          <span class="muted" id="pctText">0% elapsed</span>
+        </div>
+        <div class="status-right">
+          <span class="muted" id="nextAlert">Ready</span>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="btn-row">
+          <button class="btn btn-primary" id="startBtn">Start</button>
+          <button class="btn btn-lg" id="setBtn" title="Set the preset time (like the SET key on the cube)">SET</button>
+          <button class="btn btn-ghost" id="resetBtn">Reset</button>
+        </div>
+        <div class="presets" id="presets" role="group" aria-label="Quick presets">
+          <button class="chip" data-min="5">5</button>
+          <button class="chip" data-min="10">10</button>
+          <button class="chip" data-min="15">15</button>
+          <button class="chip" data-min="20">20</button>
+          <button class="chip" data-min="25">25</button>
+          <button class="chip" data-min="30" aria-pressed="true">30</button>
+          <button class="chip" data-min="45">45</button>
+          <button class="chip" data-min="50">50</button>
+          <button class="chip" data-min="60">60</button>
+        </div>
+
+        <!-- SET panel: mirrors the physical cube (SET → M / S → SET) -->
+        <div class="setter" id="setter" hidden>
+          <div class="setter-head">
+            <span><strong>Set the preset time</strong> — same flow as the cube: <kbd>SET</kbd> → <kbd>M</kbd>/<kbd>S</kbd> → <kbd>SET</kbd></span>
+            <span class="muted">Esc cancels</span>
+          </div>
+          <div class="setter-grid">
+            <div class="fieldset is-active" id="fieldMin">
+              <div class="label">Minutes</div>
+              <div class="stepper">
+                <button class="btn nudge" data-field="min" data-delta="-1" aria-label="One minute less">−</button>
+                <input id="minInput" type="number" min="0" max="720" step="1" value="30" aria-label="Minutes" />
+                <button class="btn nudge" data-field="min" data-delta="1" aria-label="One minute more">+</button>
+              </div>
+            </div>
+            <div class="fieldset" id="fieldSec">
+              <div class="label">Seconds</div>
+              <div class="stepper">
+                <button class="btn nudge" data-field="sec" data-delta="-10" aria-label="Ten seconds less">−10</button>
+                <input id="secInput" type="number" min="0" max="59" step="1" value="0" aria-label="Seconds" />
+                <button class="btn nudge" data-field="sec" data-delta="10" aria-label="Ten seconds more">+10</button>
+              </div>
+            </div>
+          </div>
+          <div class="setter-foot">
+            <button class="btn" id="cancelSet">Cancel</button>
+            <button class="btn btn-primary" id="confirmSet">SET</button>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <span class="muted" style="font-size:12.5px">Add / remove time:</span>
+          <button class="btn btn-ghost btn-sm quick" data-delta="1">+1 min</button>
+          <button class="btn btn-ghost btn-sm quick" data-delta="5">+5 min</button>
+          <button class="btn btn-ghost btn-sm quick" data-delta="-5">−5 min</button>
+          <button class="btn btn-ghost btn-sm" id="skip">Skip to next phase ▸</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- ======================= controls ======================= -->
+    <aside class="sidebar">
+
+      <details class="panel" open>
+        <summary>Session</summary>
+        <div class="panel-body">
+          <div class="row-stack">
+            <div class="seg-select" role="group" aria-label="Phase">
+              <button class="chip" id="phase-focus" data-phase="focus" aria-pressed="true">Focus</button>
+              <button class="chip" id="phase-short" data-phase="short" aria-pressed="false">Short break</button>
+              <button class="chip" id="phase-long" data-phase="long" aria-pressed="false">Long break</button>
+            </div>
+          </div>
+          <div class="row">
+            <div class="row-label"><span>Focus minutes</span><small>Default preset for a focus session</small></div>
+            <input id="focusMin" type="number" min="1" max="180" step="1" value="30" style="width:78px;text-align:center" />
+          </div>
+          <div class="row">
+            <div class="row-label"><span>Short break</span><small>Minutes</small></div>
+            <input id="shortMin" type="number" min="1" max="180" step="1" value="5" style="width:78px;text-align:center" />
+          </div>
+          <div class="row">
+            <div class="row-label"><span>Long break</span><small>Minutes</small></div>
+            <input id="longMin" type="number" min="1" max="180" step="1" value="15" style="width:78px;text-align:center" />
+          </div>
+          <div class="row">
+            <div class="row-label"><span>Keep screen awake</span><small>Screen Wake Lock while running</small></div>
+            <button class="toggle" id="tWake" aria-pressed="true" aria-label="Keep screen awake"></button>
+          </div>
+          <div class="row">
+            <div class="row-label"><span>Continue session after reload</span><small>Restores a running timer after a refresh</small></div>
+            <button class="toggle" id="tRestore" aria-pressed="true" aria-label="Continue session after reload"></button>
+          </div>
+          <div class="row">
+            <div class="row-label"><span>Remember last preset</span><small>Off = reset to the 30 min default on reload</small></div>
+            <button class="toggle" id="tRemember" aria-pressed="true" aria-label="Remember last preset"></button>
+          </div>
+        </div>
+      </details>
+
+      <details class="panel" open>
+        <summary>Reminder alerts</summary>
+        <div class="panel-body">
+          <div class="row">
+            <div class="row-label"><span>50 % elapsed</span><small>“Halfway there” chime + voice</small></div>
+            <button class="toggle" id="tHalf" aria-pressed="true" aria-label="Alert at 50 percent"></button>
+          </div>
+          <div class="row">
+            <div class="row-label"><span>75 % elapsed</span><small>Three-quarter chime + voice</small></div>
+            <button class="toggle" id="t75" aria-pressed="true" aria-label="Alert at 75 percent"></button>
+          </div>
+          <div class="row">
+            <div class="row-label"><span>90 % elapsed</span><small>“Final 10 %” chime + voice</small></div>
+            <button class="toggle" id="t90" aria-pressed="true" aria-label="Alert at 90 percent"></button>
+          </div>
+          <div class="row">
+            <div class="row-label"><span>Spoken time remaining</span><small>Every alert speaks the time left</small></div>
+            <button class="toggle" id="tVoice" aria-pressed="true" aria-label="Voice announcements"></button>
+          </div>
+          <div class="row">
+            <div class="row-label"><span>Extra time calls</span><small>Speak the remaining time on a timer</small></div>
+            <select id="announceEvery" aria-label="Extra time calls">
+              <option value="0">Off</option>
+              <option value="2">Every 2 min</option>
+              <option value="5" selected>Every 5 min</option>
+              <option value="10">Every 10 min</option>
+              <option value="15">Every 15 min</option>
+            </select>
+          </div>
+          <div class="row">
+            <div class="row-label"><span>Time call when you come back</span><small>Speaks the remaining time when the tab wakes up</small></div>
+            <button class="toggle" id="tReturn" aria-pressed="true" aria-label="Time call on return"></button>
+          </div>
+          <div class="row">
+            <div class="row-label"><span>Final 10-second ticks</span><small>Audible per-second ticks at the end</small></div>
+            <button class="toggle" id="tTicks" aria-pressed="true" aria-label="Final ten second ticks"></button>
+          </div>
+          <div class="row">
+            <div class="row-label"><span>Finish time's-up</span><small>Fanfare + voice when time is up</small></div>
+            <button class="toggle" id="tSound" aria-pressed="true" aria-label="Finish sound"></button>
+          </div>
+          <div class="row">
+            <div class="row-label"><span>Keep repeating until handled</span><small>Soft repeat chime every 5 s after finish</small></div>
+            <button class="toggle" id="tRepeatFinish" aria-pressed="false" aria-label="Repeat finish chime"></button>
+          </div>
+          <div class="row">
+            <div class="row-label"><span>Auto-start next phase</span><small>Begin the break/focus automatically after 1.5 s</small></div>
+            <button class="toggle" id="tAutoBreak" aria-pressed="false" aria-label="Auto start next phase"></button>
+          </div>
+          <div class="row">
+            <div class="row-label"><span>Reminder cards</span><small>On-screen cards with a quick action</small></div>
+            <button class="toggle" id="tToast" aria-pressed="true" aria-label="Reminder cards"></button>
+          </div>
+          <div class="row">
+            <div class="row-label"><span>Vibration</span><small>On phones that support it</small></div>
+            <button class="toggle" id="tVibrate" aria-pressed="true" aria-label="Vibration"></button>
+          </div>
+          <button class="btn btn-sm" id="testAlerts">▶ Test the four alerts</button>
+          <p class="hint">Browsers block sound until you click something — press <strong>Start</strong> or <strong>Test</strong> once and the cube is “unlocked”.</p>
+        </div>
+      </details>
+
+      <details class="panel">
+        <summary>Sound &amp; voice</summary>
+        <div class="panel-body">
+          <div class="row">
+            <div class="row-label"><span>Volume</span><small>Chimes &amp; spoken alerts</small></div>
+            <input id="volume" type="range" min="0" max="1" step="0.05" value="0.7" aria-label="Volume" />
+          </div>
+          <div class="row"><span class="muted" id="volumeOut">70%</span></div>
+          <div class="row-stack">
+            <div class="row-label"><span>Voice</span><small>Used for spoken time remaining</small></div>
+            <select id="voiceSel" aria-label="Voice"><option value="">System default voice</option></select>
+          </div>
+          <div class="row">
+            <div class="row-label"><span>Speaking speed</span><small></small></div>
+            <input id="voiceRate" type="range" min="0.6" max="1.6" step="0.05" value="1" aria-label="Speaking speed" />
+          </div>
+          <div class="row"><span class="muted" id="voiceRateOut">1.00×</span></div>
+          <div class="row">
+            <div class="row-label"><span>Theme</span><small></small></div>
+            <select id="themeSel" aria-label="Theme">
+              <option value="auto">Match system</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </div>
+        </div>
+      </details>
+
+      <details class="panel">
+        <summary>Accuracy</summary>
+        <div class="panel-body">
+          <p class="hint" style="margin-top:6px">The countdown is anchored to an absolute deadline (<code>Date.now()</code>), so it cannot drift. These numbers show how well your browser is keeping up with it.</p>
+          <dl class="diag">
+            <div><dt>Clock engine</dt><dd id="diagEngine">—</dd></div>
+            <div><dt>Tick interval</dt><dd id="diagTick">—</dd></div>
+            <div><dt>Longest tick gap</dt><dd id="diagGap">—</dd></div>
+            <div><dt>Worst alert lateness</dt><dd id="diagLate">—</dd></div>
+            <div><dt>Late alerts (&gt;0.5 s)</dt><dd id="diagLateCount">0</dd></div>
+            <div><dt>Throttled gaps (&gt;1.2 s)</dt><dd id="diagGaps">0</dd></div>
+            <div><dt>System clock jumps</dt><dd id="diagJumps">0</dd></div>
+          </dl>
+          <p class="hint">A few throttled gaps are normal while the tab is in the background — the deadline still holds, and alerts fire the moment the browser lets us run.</p>
+        </div>
+      </details>
+
+      <details class="panel">
+        <summary>Keyboard</summary>
+        <div class="panel-body">
+          <div class="kbd-list">
+            <div><span>Start / pause</span><span><kbd>Space</kbd></span></div>
+            <div><span>Set the preset</span><span><kbd>S</kbd></span></div>
+            <div><span>Reset</span><span><kbd>R</kbd></span></div>
+            <div><span>±1 minute</span><span><kbd>↑</kbd> <kbd>↓</kbd></span></div>
+            <div><span>±10 seconds</span><span><kbd>←</kbd> <kbd>→</kbd></span></div>
+            <div><span>Focus / short / long</span><span><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span></div>
+            <div><span>Test the alerts</span><span><kbd>T</kbd></span></div>
+          </div>
+        </div>
+      </details>
+
+      <details class="panel">
+        <summary>About &amp; free hosting</summary>
+        <div class="panel-body">
+          <p class="hint" style="margin-top:6px">PomodoroCube is plain HTML/CSS/JS — no build step, no framework, no tracking, no external requests. Publish it free on GitHub Pages:</p>
+          <p class="hint">1. Push the repo to GitHub.<br />2. <strong>Settings → Pages → Source: GitHub Actions</strong>.<br />3. The included workflow deploys the site on every push.</p>
+          <p class="hint">You can also just open <code>index.html</code> locally — it works offline, straight from the file system.</p>
+          <p class="hint" id="storageHint" hidden><strong>Preview mode:</strong> this sandboxed frame cannot save settings or register a service worker. The deployed site works normally.</p>
+        </div>
+      </details>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    PomodoroCube · free &amp; open source (MIT) · no accounts, no tracking, works offline<br />
+    Default preset 30:00 · alerts at 50 %, 75 %, 90 % + spoken time remaining
+  </footer>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+<p class="sr-only" id="srStatus" role="status"></p>
+
+<script src="src/app.js"></script>
+</body>
+</html>

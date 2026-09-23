@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="PomodoroCube">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#ffb457"/>
+      <stop offset="1" stop-color="#ef7a0c"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#bg)"/>
+  <rect x="9" y="10" width="46" height="46" rx="14" fill="#17110c"/>
+  <rect x="9" y="10" width="46" height="46" rx="14" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="2"/>
+  <g fill="none" stroke="#ff8a1f" stroke-width="4.4" stroke-linecap="round" transform="rotate(-90 32 33)">
+    <circle cx="32" cy="33" r="17.5" stroke="#ffffff" stroke-opacity="0.14"/>
+    <circle cx="32" cy="33" r="17.5" pathLength="100" stroke-dasharray="75 100"/>
+  </g>
+  <text x="32" y="41" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="19"
+        font-weight="700" fill="#fff8ec" text-anchor="middle" letter-spacing="-1.5">30</text>
+</svg>

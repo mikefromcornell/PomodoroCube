@@ -1,0 +1,19 @@
+{
+  "name": "PomodoroCube — virtual pomodoro cube timer",
+  "short_name": "PomodoroCube",
+  "description": "A virtual pomodoro cube timer with an accurate 7-segment countdown, reminder alerts at 50%, 75% and 90%, and spoken time-remaining announcements. Set your own preset — 30 minutes by default.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#f8f3eb",
+  "theme_color": "#ff8a1f",
+  "orientation": "any",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    { "src": "assets/favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

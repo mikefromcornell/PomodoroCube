@@ -1,0 +1,22 @@
+# dependencies (there are none — kept so an accidental install is never committed)
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# build output (there is no build step)
+dist/
+build/
+*.zip
+
+# editors / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# local logs & scratch
+*.log
+npm-debug.log*

@@ -1,0 +1,10 @@
+# Normalise line endings so the site behaves the same everywhere.
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
+*.jpg binary
+*.webp binary
+
+# Keep diffs readable for generated/lock-ish files (there are none, but just in case).
+*.min.js -diff
