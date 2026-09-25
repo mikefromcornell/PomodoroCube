@@ -83,6 +83,8 @@ Measured on desktop Chrome (headless, idle machine), 20-second runs:
 
 **Control**
 * Default preset **30:00**, adjustable to any minute/second (1 s – 12 h).
+  Whatever the cube shows is exactly what it runs — Start never substitutes a
+  different length, and the 30-minute default is what you get on every fresh load.
 * SET flow, quick presets (5–60 min), ±1 min / ±5 min while running, pause,
   reset, focus / short break / long break phases, and full keyboard control.
 * SET and settings are remembered (unless you turn that off), a running session

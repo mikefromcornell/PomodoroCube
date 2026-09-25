@@ -1,6 +1,6 @@
 {
   "name": "pomodorocube",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A free, dependency-free virtual pomodoro cube timer: accurate countdown, reminder alerts at 50/75/90 %, spoken time remaining, adjustable preset (30 minutes default).",
   "keywords": ["pomodoro", "timer", "cube", "focus", "productivity", "pwa", "vanilla-js", "github-pages"],
   "license": "MIT",

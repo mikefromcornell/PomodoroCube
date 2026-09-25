@@ -15,6 +15,9 @@
  *                             preset exactly (no rounding drift).
  *   5. Display consistency .. what the screen shows never disagrees with the
  *                             deadline by more than one tick.
+ *   6. Preset integrity ..... pressing Start must run exactly the block the
+ *                             cube is showing (fresh default, +/- buttons, preset
+ *                             chips, SET with seconds, keyboard nudges).
  *
  * Options (query string):  ?test=1&duration=20&freeze=11&autorun=1
  * ========================================================================= */
@@ -202,11 +205,19 @@
     record('SET stepper −10 s', 'steps the seconds field exactly', '0:40', borrow, borrow === '0:40');
     record('SET stepper ±1 min', 'minute stepper round-trips exactly', '0:40', minRoundTrip, minRoundTrip === '0:40');
     record('SET writes exact time', '00:05 confirmed via the SET key', '5000 ms', `${afterSet} ms`, afterSet === 5000);
+    $('#startBtn').click();
+    await sleep(90);
+    record('SET then Start', 'the confirmed preset is what actually runs', '5000 ms', `${app.state.totalMs} ms`, app.state.totalMs === 5000);
+    app.resetTimer(true);
 
-    /* real +1 min / +5 min buttons */
+    /* real +1 min button, measured against whatever preset is loaded */
+    app.resetTimer(true);
+    $('#setBtn').click(); app.state.draft = { min: 1, sec: 0 }; $('#confirmSet').click();  /* 01:00 */
+    const beforePlus = app.state.totalMs;
     $('.quick[data-delta="1"]').click();
     const afterPlus = app.state.totalMs;
-    record('+1 min button', 'adds exactly one minute', '65000 ms', `${afterPlus} ms`, afterPlus === 65000);
+    record('+1 min button', 'adds exactly one minute to the preset',
+      `${beforePlus + 60000} ms`, `${afterPlus} ms`, afterPlus === beforePlus + 60000);
 
     /* adjustments must shift the live deadline, never restart the run */
     app.startTimer(600000);                                     /* 10 minutes */
@@ -250,6 +261,47 @@
       `${worst.toFixed(3)} ms`, worst < 1);
     app.resetTimer(true);
     return { worstSkew: worst };
+  }
+
+  /* 6 ── Start must run exactly the preset the cube is showing */
+  async function testStartUsesDisplay() {
+    const $ = (sel) => document.querySelector(sel);
+    /* make the default deterministic regardless of what is saved in this browser */
+    app.settings.focusMin = 30;
+    app.settings.rememberLast = false;
+
+    const cases = [
+      ['fresh 30:00 default', () => {}, 30 * 60000],
+      ['+5 min while idle', () => { $('.quick[data-delta="5"]').click(); }, 35 * 60000],
+      ['−5 min while idle', () => { $('.quick[data-delta="-5"]').click(); }, 25 * 60000],
+      ['preset chip 45', () => { $('.chip[data-min="45"]').click(); }, 45 * 60000],
+      ['preset chip 15 then +1 min', () => { $('.chip[data-min="15"]').click(); $('.quick[data-delta="1"]').click(); }, 16 * 60000],
+      ['SET 00:45', () => { $('#setBtn').click(); app.state.draft = { min: 0, sec: 45 }; $('#confirmSet').click(); }, 45000],
+      ['SET 12:30', () => { $('#setBtn').click(); app.state.draft = { min: 12, sec: 30 }; $('#confirmSet').click(); }, 750000],
+      ['keyboard −18 min', () => {
+        for (let i = 0; i < 18; i++) {
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+        }
+      }, 12 * 60000]
+    ];
+
+    for (const [name, setup, expected] of cases) {
+      app.resetTimer(true);
+      setup();
+      const shownBefore = app.state.totalMs;
+      const shownText = $('#remainingText').textContent;
+      $('#startBtn').click();                       /* the real Start button */
+      await sleep(90);
+      const ran = app.state.totalMs;
+      const deadlineSpan = app.state.deadline - app.state.startAt;
+      app.resetTimer(true);
+      const label = Math.floor(expected / 60000) + ':' + String(Math.round(expected % 60000 / 1000)).padStart(2, '0');
+      const pass = ran === expected && shownBefore === expected && deadlineSpan === expected;
+      record(`Start runs “${name}”`, `cube showed ${shownText.trim()}`,
+        `${label} (${expected} ms)`, `ran ${Math.floor(ran / 60000)}:${String(Math.round(ran % 60000 / 1000)).padStart(2, '0')} (${ran} ms), deadline span ${deadlineSpan} ms`, pass);
+    }
+    app.resetTimer(true);
+    return { cases: cases.length };
   }
 
   /* ------------------------------------------------------------------ report */
@@ -306,8 +358,9 @@
       const c = await testPauseResume();
       const d = await testSetAndAdjust();
       const e = await testDisplayConsistency();
+      const f = await testStartUsesDisplay();
       render();
-      window.__accuracyTestResults = { results, summary: { passed: results.filter((r) => r.pass).length, total: results.length }, detail: { a, b, c, d, e }, diag: Object.assign({}, app.diag) };
+      window.__accuracyTestResults = { results, summary: { passed: results.filter((r) => r.pass).length, total: results.length }, detail: { a, b, c, d, e, f }, diag: Object.assign({}, app.diag) };
     } catch (err) {
       record('Harness error', String(err && err.message || err), 'no exception', 'threw', false);
       render('The run was interrupted — see the error row.');

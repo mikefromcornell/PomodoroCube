@@ -70,6 +70,11 @@ panel with the measured values. It covers:
    without restarting the run and without ever pushing it into the past.
 5. **Display consistency** — 24 samples verify that the internal deadline never
    skews from the preset.
+6. **Preset integrity** — pressing Start must run exactly the block the cube is
+   showing, for eight different ways of setting it: the fresh 30:00 default, the
+   ±1/±5 minute buttons, preset chips, chips combined with ± buttons, the SET flow
+   with seconds (00:45, 12:30) and keyboard nudges. The running deadline span is
+   checked against the displayed value, not just the internal state.
 
 Programmatic access (handy for embedding or CI):
 
@@ -104,6 +109,7 @@ default), 20/20 checks passed:
 | pause 3 s: wall time | `8 s + 3 s = 11 s` | **11.00 s** |
 | SET steppers | exact ms values, floor at 00:00 | exact |
 | ± buttons while running | deadline shifts, run not restarted | exact |
+| Start runs the display | 8 preset paths, display === running block | exact (was wrong before 1.0.1) |
 
 Real-world numbers will differ with your hardware and load; run the suite on your
 own device to see them.

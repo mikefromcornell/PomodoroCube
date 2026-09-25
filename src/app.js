@@ -75,7 +75,7 @@
     announceEvery: 5, announceOnReturn: true,
     /* session */
     focusMin: 30, shortMin: 5, longMin: 15,
-    autoStartBreak: false, keepAwake: true, restoreSession: true, rememberLast: true,
+    autoStartBreak: false, keepAwake: true, restoreSession: true, rememberLast: false,
     /* ui */
     theme: 'auto'
   };
@@ -611,8 +611,10 @@
     if (state.setMode) { confirmSet(); return; }
     if (state.status === 'running') pauseTimer();
     else if (state.status === 'paused') resumeTimer();
-    else if (state.status === 'finished') startTimer();
-    else startTimer();
+    /* Idle or finished: run exactly the preset the cube is showing. Passing
+       state.totalMs keeps the display authoritative — deriving the length from
+       settings here is what used to make a 35:00 preset run as 30:00. */
+    else startTimer(state.totalMs);
   }
   function resetTimer(silent) {
     stopRepeatChime();
@@ -641,7 +643,7 @@
   }
   function startNextPhase() {
     setPhase(state.phase === 'focus' ? 'short' : 'focus', true);
-    startTimer();
+    startTimer(state.totalMs);
   }
   /** Shift the current run by ±ms (works while running, paused or idle). */
   function adjust(ms) {
@@ -1067,10 +1069,8 @@
     $('#secInput').addEventListener('change', e => { state.draft.sec = clamp(Number(e.target.value) || 0, 0, 59); state.editField = 'sec'; render(); });
     $$('.chip', $('#presets')).forEach(ch => ch.addEventListener('click', () => {
       if (state.setMode) cancelSet();
-      const ms = Number(ch.dataset.min) * MIN;
-      state.status = 'idle';
-      state.fired = new Set();
-      state.totalMs = ms;
+      resetTimer(true);                       /* stop any run cleanly first */
+      state.totalMs = Number(ch.dataset.min) * MIN;
       if (settings.rememberLast) { settings.focusMin = Number(ch.dataset.min); saveSettings(); }
       play('ui'); render(); persist();
     }));
