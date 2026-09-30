@@ -61,9 +61,13 @@ Measured on desktop Chrome (headless, idle machine), 20-second runs:
 
 ## Features
 
-**Visualisation**
-* 3D cube with printed `30 MIN` top face, phase label on the side, and a dark
-  display on the front — click the cube to start or pause.
+**Visualisation — two views, one timer (press `V` to switch)**
+* **3D cube** with a printed `30 MIN` top face, phase label on the side, and a
+  dark display on the front — click the cube to start or pause.
+* **2D ring** — a flat alternative: a smoothly gliding progress ring and bar, the
+  same glowing digits on the page background, and a caption showing the phase and
+  the wall-clock time your block ends. Easier to read at a glance, lighter to
+  render, and the better choice on a phone or a second monitor.
 * Real 7-segment digits built from SVG polygons (not a font), with ghosted
   unlit segments.
 * 60-tick progress ring: lit ticks count down one per minute, with a hairline

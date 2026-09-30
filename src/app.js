@@ -25,6 +25,9 @@
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const MIN = 60000;
+  /* The display is four 7-segment digits, so the honest maximum is 99:59.
+     Capping here means the cube can never show a time it cannot represent. */
+  const MAX_MS = 99 * MIN + 59000;
 
   /* ------------------------------------------------------- safe local store */
   /* localStorage throws in sandboxed iframes / private mode — degrade to RAM. */
@@ -77,7 +80,7 @@
     focusMin: 30, shortMin: 5, longMin: 15,
     autoStartBreak: false, keepAwake: true, restoreSession: true, rememberLast: false,
     /* ui */
-    theme: 'auto'
+    theme: 'auto', view: 'cube'
   };
   const settings = Object.assign({}, DEFAULT_SETTINGS, storage.read(KEY_SETTINGS, {}));
   const saveSettings = () => storage.write(KEY_SETTINGS, settings);
@@ -115,7 +118,7 @@
   const phaseDuration = (phase = state.phase) => {
     const p = PHASES[phase] || PHASES.focus;
     const v = Number(settings[p.settingKey]);
-    return clamp(Number.isFinite(v) && v > 0 ? v : p.fallback, 1 / 60, 12 * 60) * MIN;
+    return clamp(Number.isFinite(v) && v > 0 ? v : p.fallback, 1 / 60, 99) * MIN;
   };
 
   /* ---------------------------------------------------------- time helpers */
@@ -135,6 +138,15 @@
     return out.join(' ');
   }
   const pct = (v) => Math.round(v * 100) + '%';
+  /** Local wall-clock time, so the caption can say when the block ends. */
+  function clockTime(epochMs) {
+    try {
+      return new Date(epochMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (_) {
+      const d = new Date(epochMs);
+      return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    }
+  }
 
   /* ------------------------------------------------------------- audio fx */
   let actx = null, master = null;
@@ -324,7 +336,22 @@
     return { pos, colonX, width: DW * 4 + 17.5, center: (DW * 4 + 17.5) / 2 };
   })();
 
-  const ui = {};
+  const ui = { displays: [] };
+  /** Build one 4-digit display (2 digits + colon + 2 digits) into the given groups. */
+  function buildDisplayInto(minG, colonG, secG) {
+    const digits = [
+      buildDigit(minG, LAYOUT.pos[0]), buildDigit(minG, LAYOUT.pos[1]),
+      buildDigit(secG, LAYOUT.pos[2]), buildDigit(secG, LAYOUT.pos[3])
+    ];
+    [11.5, 26.5].forEach(y => {
+      const r = document.createElementNS(NS, 'rect');
+      r.setAttribute('x', LAYOUT.colonX); r.setAttribute('y', y);
+      r.setAttribute('width', 5.4); r.setAttribute('height', 5.4);
+      r.setAttribute('rx', 1.3); r.setAttribute('class', 'colon-dot');
+      colonG.appendChild(r);
+    });
+    return { digits, colon: colonG };
+  }
   function buildDisplay() {
     const ticks = $('#tickGroup');
     ui.ticks = [];
@@ -337,34 +364,44 @@
       ticks.appendChild(l);
       ui.ticks.push(l);
     }
-    const minG = $('#digitsMin'), secG = $('#digitsSec');
-    ui.digits = [
-      buildDigit(minG, LAYOUT.pos[0]),
-      buildDigit(minG, LAYOUT.pos[1]),
-      buildDigit(secG, LAYOUT.pos[2]),
-      buildDigit(secG, LAYOUT.pos[3])
-    ];
-    const colon = $('#colon');
-    [11.5, 26.5].forEach(y => {
-      const r = document.createElementNS(NS, 'rect');
-      r.setAttribute('x', LAYOUT.colonX); r.setAttribute('y', y);
-      r.setAttribute('width', 5.4); r.setAttribute('height', 5.4);
-      r.setAttribute('rx', 1.3); r.setAttribute('class', 'colon-dot');
-      colon.appendChild(r);
-    });
-    ui.colon = colon;
+    /* the 3D cube screen */
+    ui.displays.push(buildDisplayInto($('#digitsMin'), $('#colon'), $('#digitsSec')));
+    /* the flat 2D ring */
+    if ($('#flatMin')) ui.displays.push(buildDisplayInto($('#flatMin'), $('#flatColon'), $('#flatSec')));
+    ui.colon = $('#colon');
     ui.arc = $('#arc');
-    ui.digitsGroup = $('#digits');
+    ui.flat = $('#flat');
+    ui.flatArc = $('#flatArc');
+    ui.flatBarFill = $('#flatBarFill');
+
+    /* faint minute marks around the flat ring, lit as the session progresses */
+    const marks = $('#flatMarks');
+    ui.flatMarks = [];
+    for (let i = 0; i < 60; i++) {
+      const l = document.createElementNS(NS, 'line');
+      l.setAttribute('x1', 0); l.setAttribute('y1', -74.5);
+      l.setAttribute('x2', 0); l.setAttribute('y2', -66.5);
+      l.setAttribute('class', 'tick flat-tick');
+      l.setAttribute('transform', `rotate(${i * 6})`);
+      marks.appendChild(l);
+      ui.flatMarks.push(l);
+    }
   }
   let lastDigitStr = '';
   function setDigits(str) {
     if (str === lastDigitStr) return;
     lastDigitStr = str;
+    /* Accept "MM:SS" or "MMSS": the colon is punctuation, not a digit slot.
+       Indexing the string directly was the bug that left the seconds' ones
+       digit blank and shifted the seconds' tens digit one place left. */
+    const chars = String(str).replace(/[^0-9]/g, '');
     for (let i = 0; i < 4; i++) {
-      const ch = str[i] || ' ';
+      const ch = chars[i] || ' ';
       const on = SEGMAP[ch] || '';
-      const segs = ui.digits[i];
-      Object.keys(segs).forEach(k => segs[k].classList.toggle('on', on.indexOf(k) >= 0));
+      ui.displays.forEach(display => {
+        const segs = display.digits[i];
+        Object.keys(segs).forEach(k => segs[k].classList.toggle('on', on.indexOf(k) >= 0));
+      });
     }
   }
 
@@ -569,7 +606,7 @@
   function startTimer(ms) {
     stopRepeatChime();
     audioContext(); /* unlock on the user gesture that starts the timer */
-    const total = clamp(ms == null ? phaseDuration() : ms, 1000, 12 * 60 * MIN);
+    const total = clamp(ms == null ? phaseDuration() : ms, 1000, MAX_MS);
     state.totalMs = total;
     state.startAt = Date.now();
     state.deadline = state.startAt + total;
@@ -649,17 +686,17 @@
   function adjust(ms) {
     if (state.setMode) return;
     if (state.status === 'running') {
-      state.deadline = Math.max(Date.now() + 1000, state.deadline + ms);
-      state.totalMs = clamp(state.totalMs + ms, 1000, 12 * 60 * MIN);
+      state.deadline = Math.min(Date.now() + MAX_MS, Math.max(Date.now() + 1000, state.deadline + ms));
+      state.totalMs = clamp(state.totalMs + ms, 1000, MAX_MS);
       if (state.totalMs < (Date.now() - state.startAt) + 1000) state.totalMs = (Date.now() - state.startAt) + 1000;
       schedSig = '';
       play('ui');
     } else if (state.status === 'paused') {
-      state.pausedRemaining = clamp(state.pausedRemaining + ms, 1000, 12 * 60 * MIN);
-      state.totalMs = clamp(Math.max(state.totalMs, state.pausedRemaining), 1000, 12 * 60 * MIN);
+      state.pausedRemaining = clamp(state.pausedRemaining + ms, 1000, MAX_MS);
+      state.totalMs = clamp(Math.max(state.totalMs, state.pausedRemaining), 1000, MAX_MS);
       play('ui');
     } else {
-      state.totalMs = clamp(state.totalMs + ms, 1000, 12 * 60 * MIN);
+      state.totalMs = clamp(state.totalMs + ms, 1000, MAX_MS);
       play('ui');
     }
     render();
@@ -682,11 +719,11 @@
   function nudgeDraft(field, delta) {
     if (!state.setMode) return;
     state.editField = field;
-    if (field === 'min') state.draft.min = clamp(state.draft.min + delta, 0, 720);
+    if (field === 'min') state.draft.min = clamp(state.draft.min + delta, 0, 99);
     else {
       let s = state.draft.sec + delta;
       let m = state.draft.min;
-      if (s >= 60) { s -= 60; m = clamp(m + 1, 0, 720); }
+      if (s >= 60) { s -= 60; m = clamp(m + 1, 0, 99); }
       if (s < 0) {
         if (m > 0) { s += 60; m -= 1; }   /* borrow a minute … */
         else { s = 0; }                    /* … but never wrap below zero */
@@ -698,17 +735,17 @@
   }
   function confirmSet() {
     if (!state.setMode) return;
-    const ms = clamp((state.draft.min * 60 + state.draft.sec) * 1000, 1000, 12 * 60 * MIN);
+    const ms = clamp((state.draft.min * 60 + state.draft.sec) * 1000, 1000, MAX_MS);
     state.setMode = false;
     play('set');
     if (state.status === 'running') {
       const elapsed = Date.now() - state.startAt;
-      state.totalMs = clamp(elapsed + ms, 1000, 12 * 60 * MIN);
+      state.totalMs = clamp(elapsed + ms, 1000, MAX_MS);
       state.deadline = Date.now() + ms;
       schedSig = '';
     } else if (state.status === 'paused') {
       state.pausedRemaining = ms;
-      state.totalMs = clamp(Math.max(state.totalMs, ms), 1000, 12 * 60 * MIN);
+      state.totalMs = clamp(Math.max(state.totalMs, ms), 1000, MAX_MS);
     } else {
       state.status = 'idle';
       state.totalMs = ms;
@@ -738,6 +775,13 @@
     if (state.status === 'finished') return 0;
     return state.totalMs;
   }
+  /** How much of the block has elapsed, 0..1 (works for every status). */
+  function elapsed01(now) {
+    if (state.setMode || state.status === 'idle') return 0;
+    if (state.status === 'finished') return 1;
+    if (state.status === 'paused') return clamp(1 - state.pausedRemaining / Math.max(1, state.totalMs), 0, 1);
+    return clamp((now - state.startAt) / Math.max(1, state.totalMs), 0, 1);
+  }
   function remainingFraction(now) {
     const total = Math.max(1, state.totalMs);
     if (state.setMode || state.status === 'idle') return 1;
@@ -758,9 +802,15 @@
     const lit = Math.ceil(frac * 60);
     if (lit !== lastLit) {
       lastLit = lit;
-      for (let i = 0; i < 60; i++) ui.ticks[i].classList.toggle('on', i < lit);
+      for (let i = 0; i < 60; i++) {
+        ui.ticks[i].classList.toggle('on', i < lit);
+        if (ui.flatMarks[i]) ui.flatMarks[i].classList.toggle('on', i < lit);
+      }
     }
-    ui.arc.setAttribute('stroke-dashoffset', String(100 - frac * 100));
+    const dash = String(100 - frac * 100);
+    ui.arc.setAttribute('stroke-dashoffset', dash);
+    if (ui.flatArc) ui.flatArc.setAttribute('stroke-dashoffset', dash);
+    if (ui.flatBarFill) ui.flatBarFill.style.width = (elapsed01(now) * 100).toFixed(2) + '%';
 
     const low = frac <= 0.1 && frac > 0 && !state.setMode;
     scr.classList.toggle('low', low);
@@ -769,6 +819,32 @@
     scr.classList.toggle('setting', state.setMode);
     scr.classList.toggle('min-mode', state.setMode && state.editField === 'min');
     scr.classList.toggle('sec-mode', state.setMode && state.editField === 'sec');
+
+    /* flat 2D view */
+    const flat = ui.flat;
+    if (flat) {
+      flat.classList.toggle('running', state.status === 'running');
+      flat.classList.toggle('paused', state.status === 'paused');
+      flat.classList.toggle('done', state.status === 'finished');
+      flat.classList.toggle('low', low);
+      flat.classList.toggle('setting', state.setMode);
+      const fp = $('#flatPhase'), fx = $('#flatPct');
+      if (fp) {
+        fp.textContent = state.setMode ? 'Setting…'
+          : state.status === 'finished' ? 'Done — nice work'
+            : state.status === 'paused' ? 'Paused'
+              : state.status === 'idle' ? `${PHASES[state.phase].label} · ready`
+                : `${PHASES[state.phase].label} · running`;
+      }
+      if (fx) {
+        const endsAt = state.status === 'running' ? state.deadline
+          : state.status === 'paused' ? now + state.pausedRemaining
+            : now;
+        fx.textContent = (state.status === 'running' || state.status === 'paused')
+          ? `ends ${clockTime(endsAt)}`
+          : pct(elapsed01(now)) + ' elapsed';
+      }
+    }
 
     /* top + right face prints */
     $('#topNum').textContent = String(Math.round(state.totalMs / MIN));
@@ -785,9 +861,7 @@
         : state.status === 'idle' ? `${clock(ms)} ready`
           : `${clock(ms)} remaining`;
 
-    const elapsed = state.status === 'running' ? clamp((now - state.startAt) / Math.max(1, state.totalMs), 0, 1)
-      : state.status === 'paused' ? clamp(1 - state.pausedRemaining / Math.max(1, state.totalMs), 0, 1)
-        : state.status === 'finished' ? 1 : 0;
+    const elapsed = elapsed01(now);
     $('#pctText').textContent = pct(elapsed) + ' elapsed';
 
     const nx = nextEventLabel(now);
@@ -956,7 +1030,7 @@
     if (s.status === 'running' && s.deadline > now) {
       state.status = 'running';
       state.phase = PHASES[s.phase] ? s.phase : 'focus';
-      state.totalMs = clamp(Number(s.totalMs) || phaseDuration(), 1000, 12 * 60 * MIN);
+      state.totalMs = clamp(Number(s.totalMs) || phaseDuration(), 1000, MAX_MS);
       state.startAt = Number(s.startAt) || now;
       state.deadline = Number(s.deadline);
       state.fired = new Set(Array.isArray(s.fired) ? s.fired : []);
@@ -969,7 +1043,7 @@
     if (s.status === 'running' && s.deadline <= now) {
       /* finished while the page was closed */
       state.phase = PHASES[s.phase] ? s.phase : 'focus';
-      state.totalMs = clamp(Number(s.totalMs) || phaseDuration(), 1000, 12 * 60 * MIN);
+      state.totalMs = clamp(Number(s.totalMs) || phaseDuration(), 1000, MAX_MS);
       state.status = 'finished';
       state.startAt = Number(s.startAt) || now;
       state.deadline = Number(s.deadline);
@@ -984,7 +1058,7 @@
     }
     if (s.status === 'paused') {
       state.phase = PHASES[s.phase] ? s.phase : 'focus';
-      state.totalMs = clamp(Number(s.totalMs) || phaseDuration(), 1000, 12 * 60 * MIN);
+      state.totalMs = clamp(Number(s.totalMs) || phaseDuration(), 1000, MAX_MS);
       state.pausedRemaining = clamp(Number(s.pausedRemaining) || state.totalMs, 1000, state.totalMs);
       state.status = 'paused';
       return true;
@@ -1046,6 +1120,21 @@
     });
   }
 
+  function applyView() {
+    const flat = settings.view === 'flat';
+    const scene = $('.scene'), flatEl = $('#flat');
+    if (scene) scene.hidden = flat;
+    if (flatEl) flatEl.hidden = !flat;
+    $$('#viewCube,#viewFlat').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.view === 'flat') === flat)));
+  }
+  function setView(view) {
+    settings.view = view === 'flat' ? 'flat' : 'cube';
+    saveSettings();
+    applyView();
+    play('ui');
+    render();
+  }
+
   function applyTheme() {
     const t = settings.theme === 'auto'
       ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
@@ -1082,6 +1171,7 @@
     $('#testAlerts').addEventListener('click', testAlerts);
     $('#skip').addEventListener('click', () => { startNextPhase(); });
     $('#cube').addEventListener('click', toggleRun);
+    $$('#viewCube,#viewFlat').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
     $('#themeBtn').addEventListener('click', () => {
       settings.theme = (document.documentElement.getAttribute('data-theme') === 'dark') ? 'light' : 'dark';
       saveSettings(); applyTheme();
@@ -1164,6 +1254,7 @@
       else if (k === '2') { setPhase('short', true); }
       else if (k === '3') { setPhase('long', true); }
       else if (k === 't' || k === 'T') { testAlerts(); }
+      else if (k === 'v' || k === 'V') { setView(settings.view === 'flat' ? 'cube' : 'flat'); }
     });
 
     /* wake-up / catch-up when the tab becomes visible again */
@@ -1225,6 +1316,7 @@
   function init() {
     buildDisplay();
     applyTheme();
+    applyView();
     wire();
     if (!storage.live) {
       const hint = $('#storageHint');
@@ -1257,7 +1349,7 @@
   window.__pomodoroCube = {
     state, settings, diag, hooks,
     tick, render, startTimer, pauseTimer, resumeTimer, resetTimer, setPhase, adjust,
-    openSet, nudgeDraft, confirmSet, cancelSet,
+    openSet, nudgeDraft, confirmSet, cancelSet, setView, applyView,
     clock, human, events, checkEvents, setDigits
   };
 })();

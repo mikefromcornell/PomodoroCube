@@ -86,7 +86,21 @@ instants. The whole accuracy suite is built on these hooks, nothing else.
 
 ## Offline
 
-`sw.js` caches the app shell with a *stale-while-revalidate* strategy: the cached
-copy is served instantly (so it works offline) and refreshed in the background.
-It only ever handles same-origin GET requests — third-party requests are passed
-straight through, of which there are none anyway.
+`sw.js` caches the app shell with a **network-first** strategy: every online load
+revalidates the real files with the server (`cache: 'no-cache'`, a cheap 304 when
+nothing changed), and the cache is only used when the network is down. A timer
+has to run the code that was actually released — up to 1.0.1 the worker served
+the cache first, so returning visitors kept the previous release (and its bugs)
+until a second reload.
+
+* The cache is versioned (`pomodorocube-<version>`). Bump `VERSION` in `sw.js`
+  with every release — `tools/check.mjs` fails CI if it doesn't match
+  `package.json`. The changed worker precaches the new release, bypassing the
+  HTTP cache (GitHub Pages sends `max-age=600`), then drops the old cache.
+* It only deletes caches with its own `pomodorocube-` prefix: every
+  `<user>.github.io` project site shares one origin.
+* An open tab is never force-reloaded — a reload would interrupt a running
+  block and the browser would block its alerts until the next click. The new
+  release applies on the next load.
+* It only ever handles same-origin GET requests — third-party requests are
+  passed straight through, of which there are none anyway.

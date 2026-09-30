@@ -18,6 +18,10 @@
  *   6. Preset integrity ..... pressing Start must run exactly the block the
  *                             cube is showing (fresh default, +/- buttons, preset
  *                             chips, SET with seconds, keyboard nudges).
+ *   7. Display integrity .... the lit segments of the 7-segment display are
+ *                             decoded back into digits and compared with the
+ *                             clock, so a rendering bug (digits shifted, blank
+ *                             or frozen) fails the suite instead of hiding.
  *
  * Options (query string):  ?test=1&duration=20&freeze=11&autorun=1
  * ========================================================================= */
@@ -304,6 +308,76 @@
     return { cases: cases.length };
   }
 
+  /* 7 ── what the display actually renders must equal the clock */
+  const SEG_INVERSE = {
+    abcdef: '0', bc: '1', abdeg: '2', abcdg: '3', bcfg: '4',
+    acdfg: '5', acdefg: '6', abc: '7', abcdefg: '8', abcdfg: '9'
+  };
+  function decodeDisplay(rootSel) {
+    const groups = Array.from(document.querySelectorAll(rootSel + ' g'))
+      .filter((g) => g.querySelectorAll(':scope > polygon').length === 7);
+    if (!groups.length) return null;
+    return groups.map((g) => {
+      const lit = Array.from(g.querySelectorAll('polygon'))
+        .filter((poly) => poly.classList.contains('on'))
+        .map((poly) => Array.from(poly.classList).find((c) => /^[a-g]$/.test(c)))
+        .sort().join('');
+      return SEG_INVERSE[lit] ?? '?';
+    }).join('');
+  }
+  const displayRoots = () => [
+    ['3D screen', '#digits'],
+    ['2D ring', '#flatDigits']
+  ].filter(([, sel]) => document.querySelector(sel) && decodeDisplay(sel));
+
+  async function testDisplayIntegrity() {
+    const roots = displayRoots();
+    record('Display present', 'findable in the DOM', '3D screen (+ 2D ring when available)',
+      roots.map(([n]) => n).join(', ') || 'none', roots.length >= 1);
+
+    /* every glyph must decode back to itself */
+    let glyphFails = [];
+    for (const [name, sel] of roots) {
+      for (let n = 0; n <= 9; n++) {
+        app.setDigits(String(n) + String(n) + ':' + String(n) + String(n));
+        const got = decodeDisplay(sel);
+        if (got !== String(n).repeat(4)) glyphFails.push(`${name} ${n}→${got}`);
+      }
+    }
+    record('Display glyphs', 'all ten digits, both views, decoded from the DOM',
+      'each digit decodes back to itself', glyphFails.length ? glyphFails.join(', ') : 'all correct', glyphFails.length === 0);
+
+    /* during a live run the rendered digits must equal the clock */
+    const ms = 6000;
+    const unsilence = silence();
+    app.startTimer(ms);
+    const samples = [];
+    for (let i = 0; i < 6; i++) {
+      await sleep(1000);
+      const expected = Math.max(0, Math.ceil((app.state.deadline - Date.now()) / 1000));
+      const want = String(Math.floor(expected / 60)).padStart(2, '0') + String(expected % 60).padStart(2, '0');
+      samples.push({ want, renders: roots.map(([name, sel]) => [name, decodeDisplay(sel)]) });
+    }
+    unsilence();
+    const seconds = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(2));
+    let worst = null;
+    roots.forEach(([name]) => {
+      const off = samples
+        .map((s) => [s.want, (s.renders.find(([n]) => n === name) || [null, ''])[1]])
+        .filter(([want, got]) => Math.abs(seconds(got) - seconds(want)) > 1);
+      if (off.length && !worst) worst = `${name}: ${off.slice(0, 2).map(([a, b]) => `showed ${b}, clock ${a}`).join('; ')}`;
+    });
+    record('Display matches the clock', 'rendered segments vs. remaining time, once a second',
+      'never more than 1 s apart', worst || `${samples.length} samples × ${roots.length} view(s), all within 1 s`, !worst);
+
+    const monotonic = samples.every((s, i) => i === 0 || seconds(s.renders[0][1]) <= seconds(samples[i - 1].renders[0][1]));
+    record('Display counts down', 'the rendered digits only ever decrease',
+      'monotonic', monotonic ? 'strictly decreasing' : 'went back up at least once', monotonic);
+
+    app.resetTimer(true);
+    return { roots: roots.length, samples: samples.length };
+  }
+
   /* ------------------------------------------------------------------ report */
   function render(status) {
     const panel = document.getElementById('pc-test') || (() => {
@@ -359,8 +433,9 @@
       const d = await testSetAndAdjust();
       const e = await testDisplayConsistency();
       const f = await testStartUsesDisplay();
+      const h = await testDisplayIntegrity();
       render();
-      window.__accuracyTestResults = { results, summary: { passed: results.filter((r) => r.pass).length, total: results.length }, detail: { a, b, c, d, e, f }, diag: Object.assign({}, app.diag) };
+      window.__accuracyTestResults = { results, summary: { passed: results.filter((r) => r.pass).length, total: results.length }, detail: { a, b, c, d, e, f, h }, diag: Object.assign({}, app.diag) };
     } catch (err) {
       record('Harness error', String(err && err.message || err), 'no exception', 'threw', false);
       render('The run was interrupted — see the error row.');

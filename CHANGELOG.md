@@ -4,6 +4,47 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] — 2026-09-30
+
+### Fixed
+
+* **The seconds digit never updated.** `setDigits()` indexed the `"MM:SS"` string
+  directly, so the colon consumed a digit slot: the seconds' *ones* digit was
+  never written and the seconds' *tens* digit was shifted one place left. At
+  30:00 the cube showed `30: 0` and the last digit stayed frozen for the whole
+  session — reported as “the timer is showing the wrong time and not counting
+  down properly”. The duration is now parsed properly (`MM:SS` or `MMSS`), both
+  digit groups are written, and both visualisations stay in lockstep.
+* **The clock can no longer promise a time it cannot show.** Four 7-segment
+  digits top out at 99:59, so presets, the SET steppers, the ± buttons and the
+  settings inputs are all capped at 99 minutes instead of silently overflowing
+  to a blank display.
+* **Fixes now reach people who already had the app.** The service worker served
+  its cache first under a cache name that never changed, so a returning visitor
+  kept running the previous release — including the frozen digit above — until
+  a second reload, and a precache could even store stale copies from the HTTP
+  cache. It is now network-first with a versioned cache (CI enforces the bump),
+  so every online load runs the released code and the cache is only the
+  offline fallback. Because the previous worker is still in charge of the first
+  visit after this update, reload once to pick up 1.0.2.
+* **The service worker no longer deletes other sites' caches.** On activation it
+  removed every cache that wasn't its own, and all `<user>.github.io` project
+  sites share one origin. It now only touches `pomodorocube-*` caches.
+
+### Added
+
+* **2D ring view** — a flat alternative to the 3D cube: the progress ring and the
+  bar glide smoothly, the glowing digits sit on the page background, the ring
+  turns red in the final 10 %, and the caption shows the phase plus the
+  wall-clock time the block ends. Switch with the **3D cube / 2D ring** buttons
+  at the top of the stage or with **V**; the choice is remembered.
+* Suite grew to **33 checks** with a new *display integrity* scenario that
+  decodes the lit segments straight out of the DOM and compares them with the
+  clock, for every glyph in both views plus once-a-second samples during a live
+  run. A shifted, blank or frozen digit now fails the suite.
+
+[1.0.2]: https://github.com/mikefromcornell/PomodoroCube/releases/tag/v1.0.2
+
 ## [1.0.1] — 2026-09-25
 
 ### Fixed

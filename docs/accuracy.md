@@ -70,7 +70,13 @@ panel with the measured values. It covers:
    without restarting the run and without ever pushing it into the past.
 5. **Display consistency** — 24 samples verify that the internal deadline never
    skews from the preset.
-6. **Preset integrity** — pressing Start must run exactly the block the cube is
+6. **Display integrity** — the lit segments of the 7-segment display are decoded
+   back into digits (straight from the DOM, in both the 3D screen and the 2D
+   ring) and compared with the clock: every glyph, plus once-a-second samples
+   during a live run that must never drift more than a second and must only ever
+   decrease. This is what catches a *rendering* bug, where the timer is running
+   correctly but the cube shows the wrong time.
+7. **Preset integrity** — pressing Start must run exactly the block the cube is
    showing, for eight different ways of setting it: the fresh 30:00 default, the
    ±1/±5 minute buttons, preset chips, chips combined with ± buttons, the SET flow
    with seconds (00:45, 12:30) and keyboard nudges. The running deadline span is
@@ -110,6 +116,7 @@ default), 20/20 checks passed:
 | SET steppers | exact ms values, floor at 00:00 | exact |
 | ± buttons while running | deadline shifts, run not restarted | exact |
 | Start runs the display | 8 preset paths, display === running block | exact (was wrong before 1.0.1) |
+| Display integrity | segments decoded from the DOM vs. the clock | exact (the seconds digit was frozen before 1.0.2) |
 
 Real-world numbers will differ with your hardware and load; run the suite on your
 own device to see them.

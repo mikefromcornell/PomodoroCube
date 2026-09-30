@@ -338,3 +338,73 @@ kbd{
 footer.foot{margin-top:26px;font-size:12px;color:var(--ink-3);text-align:center;line-height:1.7}
 footer.foot a{color:inherit}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* ================= 2D flat ring view ================= */
+.scene[hidden],.flat[hidden]{display:none !important}
+.viewswitch{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center}
+.viewswitch .chip{padding:6px 12px;font-size:12.5px}
+
+.flat{
+  --flat-size:clamp(250px,66vw,360px);
+  width:100%;
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  position:relative;
+}
+.flat[hidden]{display:none}
+.flat-svg{
+  width:var(--flat-size);height:var(--flat-size);
+  display:block;
+  filter:drop-shadow(0 20px 34px rgba(74,52,24,.24));
+}
+.flat-track{fill:none;stroke:var(--line);stroke-width:9}
+.flat-prog{
+  fill:none;stroke:var(--accent);stroke-width:9;stroke-linecap:round;
+  /* the glide: each tick eases the ring forward instead of snapping */
+  transition:stroke-dashoffset 1s linear,stroke .3s ease,opacity .3s ease;
+}
+.flat-tick{stroke:var(--line);stroke-width:4.4}
+.flat-tick.on{stroke:var(--accent);stroke-width:4.8}
+[data-theme="dark"] .flat-tick.on{stroke:var(--accent-2)}
+
+.flat-bar{
+  width:min(100%,420px);height:10px;border-radius:999px;background:var(--panel-2);
+  border:1px solid var(--line);overflow:hidden;
+}
+.flat-bar>span{
+  display:block;height:100%;width:0%;
+  background:linear-gradient(90deg,var(--accent),var(--accent-2));
+  transition:width .95s linear;
+}
+.flat-caption{
+  display:flex;justify-content:space-between;width:min(100%,420px);
+  font-size:13px;font-weight:600;color:var(--ink-2);
+}
+
+/* the digits sit on the page background, so give them dark-mode-friendly ink */
+.flat-digits .seg{fill:var(--line)}
+.flat-digits .seg.on{fill:var(--accent)}
+.flat-digits .colon{fill:var(--line)}
+.flat-digits .colon.on{fill:var(--accent)}
+[data-theme="dark"] .flat-digits .seg.on,
+[data-theme="dark"] .flat-digits .colon.on{fill:var(--accent-2)}
+.flat-digits{filter:none}
+
+/* states */
+.flat.running .flat-prog{animation:breathe 3.4s ease-in-out infinite}
+.flat.low .flat-prog{stroke:var(--seg-on-low);animation:pulseLow 1.6s ease-in-out infinite}
+.flat.low .flat-tick.on{stroke:var(--seg-on-low)}
+.flat.low .flat-digits .seg.on,.flat.low .flat-digits .colon.on{fill:var(--seg-on-low)}
+.flat.low .flat-bar>span{background:linear-gradient(90deg,#e5482f,#ff7a5c)}
+.flat.paused{opacity:.55}
+.flat.paused .flat-prog{animation:none}
+.flat.done .flat-prog{animation:none}
+.flat.done .flat-digits .seg.on{animation:strobe 1.1s ease-in-out infinite}
+.flat.done .flat-tick.on{stroke:var(--ok)}
+.flat.setting .flat-prog{transition:none;opacity:.35}
+@keyframes breathe{0%,100%{opacity:1}50%{opacity:.72}}
+@keyframes pulseLow{0%,100%{opacity:1}50%{opacity:.6}}
+
+@media (prefers-reduced-motion:reduce){
+  .flat-prog,.flat-bar>span{transition:none}
+  .flat.running .flat-prog,.flat.low .flat-prog{animation:none}
+}

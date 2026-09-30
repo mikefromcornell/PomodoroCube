@@ -41,6 +41,12 @@
 
     <!-- ======================= the cube ======================= -->
     <main class="card stage">
+      <div class="viewswitch" role="group" aria-label="Visualization">
+        <button class="chip" id="viewCube" data-view="cube" aria-pressed="true">3D cube</button>
+        <button class="chip" id="viewFlat" data-view="flat" aria-pressed="false">2D ring</button>
+        <span class="muted" style="font-size:11.5px;margin-left:4px">press <kbd>V</kbd> to switch</span>
+      </div>
+
       <div class="scene">
         <div class="cube-wrap">
           <div class="cube" id="cube" role="button" tabindex="0" aria-label="Start or pause the timer">
@@ -76,6 +82,25 @@
             </div>
           </div>
           <div class="cube-shadow"></div>
+        </div>
+      </div>
+
+      <div class="flat" id="flat" hidden>
+        <svg class="flat-svg" viewBox="-100 -100 200 200" aria-hidden="true">
+          <circle class="flat-track" r="84"/>
+          <circle id="flatArc" class="flat-prog" r="84" pathLength="100"
+                  stroke-dasharray="100 100" stroke-dashoffset="0" transform="rotate(-90)"/>
+          <g id="flatMarks"></g>
+          <g id="flatDigits" class="digits flat-digits" transform="scale(1.16) translate(-50.75 -22)">
+            <g id="flatMin"></g>
+            <g id="flatColon"></g>
+            <g id="flatSec"></g>
+          </g>
+        </svg>
+        <div class="flat-bar"><span id="flatBarFill"></span></div>
+        <div class="flat-caption">
+          <span id="flatPhase">Focus · ready</span>
+          <span id="flatPct" class="muted">0%</span>
         </div>
       </div>
 
@@ -119,7 +144,7 @@
               <div class="label">Minutes</div>
               <div class="stepper">
                 <button class="btn nudge" data-field="min" data-delta="-1" aria-label="One minute less">−</button>
-                <input id="minInput" type="number" min="0" max="720" step="1" value="30" aria-label="Minutes" />
+                <input id="minInput" type="number" min="0" max="99" step="1" value="30" aria-label="Minutes" />
                 <button class="btn nudge" data-field="min" data-delta="1" aria-label="One minute more">+</button>
               </div>
             </div>
@@ -163,15 +188,15 @@
           </div>
           <div class="row">
             <div class="row-label"><span>Focus minutes</span><small>Default preset for a focus session</small></div>
-            <input id="focusMin" type="number" min="1" max="180" step="1" value="30" style="width:78px;text-align:center" />
+            <input id="focusMin" type="number" min="1" max="99" step="1" value="30" style="width:78px;text-align:center" />
           </div>
           <div class="row">
             <div class="row-label"><span>Short break</span><small>Minutes</small></div>
-            <input id="shortMin" type="number" min="1" max="180" step="1" value="5" style="width:78px;text-align:center" />
+            <input id="shortMin" type="number" min="1" max="99" step="1" value="5" style="width:78px;text-align:center" />
           </div>
           <div class="row">
             <div class="row-label"><span>Long break</span><small>Minutes</small></div>
-            <input id="longMin" type="number" min="1" max="180" step="1" value="15" style="width:78px;text-align:center" />
+            <input id="longMin" type="number" min="1" max="99" step="1" value="15" style="width:78px;text-align:center" />
           </div>
           <div class="row">
             <div class="row-label"><span>Keep screen awake</span><small>Screen Wake Lock while running</small></div>
@@ -305,6 +330,7 @@
             <div><span>±1 minute</span><span><kbd>↑</kbd> <kbd>↓</kbd></span></div>
             <div><span>±10 seconds</span><span><kbd>←</kbd> <kbd>→</kbd></span></div>
             <div><span>Focus / short / long</span><span><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></span></div>
+            <div><span>Switch 2D / 3D view</span><span><kbd>V</kbd></span></div>
             <div><span>Test the alerts</span><span><kbd>T</kbd></span></div>
           </div>
         </div>
