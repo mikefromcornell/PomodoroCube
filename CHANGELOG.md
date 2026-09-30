@@ -4,7 +4,7 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.2] — 2026-09-28
+## [1.0.2] — 2026-09-30
 
 ### Fixed
 
@@ -19,6 +19,17 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   digits top out at 99:59, so presets, the SET steppers, the ± buttons and the
   settings inputs are all capped at 99 minutes instead of silently overflowing
   to a blank display.
+* **Fixes now reach people who already had the app.** The service worker served
+  its cache first under a cache name that never changed, so a returning visitor
+  kept running the previous release — including the frozen digit above — until
+  a second reload, and a precache could even store stale copies from the HTTP
+  cache. It is now network-first with a versioned cache (CI enforces the bump),
+  so every online load runs the released code and the cache is only the
+  offline fallback. Because the previous worker is still in charge of the first
+  visit after this update, reload once to pick up 1.0.2.
+* **The service worker no longer deletes other sites' caches.** On activation it
+  removed every cache that wasn't its own, and all `<user>.github.io` project
+  sites share one origin. It now only touches `pomodorocube-*` caches.
 
 ### Added
 

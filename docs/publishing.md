@@ -96,7 +96,7 @@ folder into a public one with a small workflow.
 
 After the first deploy:
 
-* `https://your-site/?test=1` → the accuracy suite should pass 20/20.
+* `https://your-site/?test=1` → the accuracy suite should pass 33/33.
 * Open DevTools → **Application → Service Workers** → `sw.js` should be activated
   (it can only register over `https://` or `localhost`).
 * DevTools → **Application → Manifest** → the icon, name and theme should resolve,

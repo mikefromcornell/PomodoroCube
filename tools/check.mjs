@@ -65,6 +65,14 @@ const swFiles = [...sw.matchAll(/'(\.\/[^']+)'/g)].map((m) => m[1].replace(/^\.\
 const swMissing = swFiles.filter((f) => !existsSync(join(root, f)));
 check(swMissing.length === 0, swMissing.length ? `service worker lists missing files: ${swMissing.join(', ')}` : `service worker shell (${swFiles.length} files) is complete`);
 
+/* 8 ── the service worker ships every release to returning visitors */
+const swVersion = (sw.match(/const VERSION = '([^']+)'/) || [])[1];
+check(swVersion === pkg.version,
+  `service worker cache version ${swVersion} matches package.json ${pkg.version}` +
+  (swVersion === pkg.version ? '' : ' — bump VERSION in sw.js, or browsers keep the old release'));
+check(/networkFirst/.test(sw) && /cache: 'no-cache'/.test(sw), 'service worker is network-first (online loads always get the released code)');
+check(/startsWith\(PREFIX\)/.test(sw), 'service worker only deletes its own caches (github.io origins are shared)');
+
 console.log('--------------------------');
 if (failures) {
   console.error(`${failures} check(s) failed\n`);
